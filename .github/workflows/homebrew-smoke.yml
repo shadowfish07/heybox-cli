@@ -1,0 +1,23 @@
+name: Homebrew Smoke Test
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - Release
+    types:
+      - completed
+
+permissions: {}
+
+jobs:
+  install:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: macos-latest
+    steps:
+      - name: Install from tap
+        run: brew install shadowfish07/tap/heybox
+      - name: Verify global command
+        run: |
+          command -v heybox
+          heybox --version

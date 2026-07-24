@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -43,7 +44,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	root := &cobra.Command{
 		Use:           "heybox",
 		Short:         "搜索小黑盒社区内容",
-		Version:       version,
+		Version:       buildVersion(),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
@@ -52,6 +53,24 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	root.AddCommand(newSearchCommand(stdout, stderr))
 	root.AddCommand(newCompletionCommand(root, stdout))
 	return root
+}
+
+func buildVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return version
+	}
+	return resolveVersion(version, info)
+}
+
+func resolveVersion(injected string, info *debug.BuildInfo) string {
+	if injected != "dev" {
+		return injected
+	}
+	if info != nil && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return strings.TrimPrefix(info.Main.Version, "v")
+	}
+	return injected
 }
 
 func newCompletionCommand(root *cobra.Command, stdout io.Writer) *cobra.Command {

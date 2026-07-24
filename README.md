@@ -15,13 +15,13 @@
 macOS 用户可以一条命令安装到 Homebrew 管理的全局 PATH：
 
 ```bash
-brew install --cask shadowfish07/tap/heybox
+brew install shadowfish07/tap/heybox
 ```
 
 升级：
 
 ```bash
-brew upgrade --cask heybox
+brew upgrade heybox
 ```
 
 ### Go install

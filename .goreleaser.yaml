@@ -66,25 +66,18 @@ release:
   draft: false
   prerelease: auto
 
-homebrew_casks:
+brews:
   - name: heybox
     ids:
       - default
-    binaries:
-      - heybox
     repository:
       owner: shadowfish07
       name: homebrew-tap
       branch: main
       token: "{{ .Env.GH_PAT }}"
+    directory: Formula
     homepage: https://github.com/shadowfish07/heybox-cli
     description: Read-only CLI for searching the Heybox community
-    url:
-      verified: github.com/shadowfish07/heybox-cli/
-    generate_completions_from_executable:
-      executable: heybox
-      shell_parameter_format: cobra
-      shells:
-        - bash
-        - zsh
-        - fish
+    license: MIT
+    test: |
+      system "#{bin}/heybox", "--version"

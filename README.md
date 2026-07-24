@@ -62,6 +62,10 @@ heybox --version
 ## 使用
 
 ```bash
+# 首次登录：默认生成小黑盒 App 扫码二维码
+heybox login
+heybox auth status
+
 # 全站统一搜索
 heybox search "Steam 夏促"
 
@@ -97,15 +101,44 @@ heybox search "Steam" --sort latest --timeout 20s
 
 `--all` 仍受 `--max-pages` 保护，默认最多获取 5 页，最大允许 20 页；各页按顺序请求，页间有短暂延时以降低触发限流的概率。
 
-## 可选登录态
+## 登录与凭据安全
 
-默认匿名搜索。如果小黑盒要求登录，可以通过环境变量提供已有 Cookie：
+默认登录方式适合本机终端、SSH 和远程 Agent：
+
+```bash
+heybox login
+```
+
+CLI 会调用小黑盒当前网页端使用的二维码接口，在交互式终端显示 Unicode 二维码，并始终生成一个权限为 `0600` 的临时 PNG、输出其路径。使用小黑盒 App 扫码并在手机上确认即可；命令结束后临时图片会自动删除。远程 Agent 可以在命令等待期间展示这张 PNG，因此不依赖远端桌面或远端浏览器。
+
+需要验证码、密码、微信或谷歌二次验证时，可以改用官方网页登录：
+
+```bash
+heybox login --browser
+```
+
+网页模式只在 `127.0.0.1` 的随机端口监听登录回调，并使用随机 `state` 校验回调。它要求完成登录的浏览器能访问运行 CLI 的这台电脑；纯 SSH/远程 Agent 场景优先使用默认二维码模式。浏览器没有自动打开时：
+
+```bash
+heybox login --browser --no-browser
+```
+
+登录成功后只保存搜索需要的 `heybox_id`、`pkey` 等会话字段，不保存密码、验证码、二维码或谷歌二次验证材料。文件位于系统用户配置目录下的 `heybox-cli/session.json`：macOS 通常是 `~/Library/Application Support/heybox-cli/session.json`，Linux 通常是 `~/.config/heybox-cli/session.json`，Windows 位于用户 AppData。macOS/Linux 的目录权限设为 `0700`、文件权限设为 `0600`；Windows 继承用户 AppData 的访问控制。写入使用同目录临时文件原子替换，并拒绝符号链接目标。
+
+查看状态或删除本地凭据：
+
+```bash
+heybox auth status
+heybox logout
+```
+
+`HEYBOX_COOKIE` 仍可作为临时覆盖，并且优先级高于本地会话文件：
 
 ```bash
 HEYBOX_COOKIE='heybox_id=...; ...' heybox search "关键词"
 ```
 
-Cookie 不支持命令行参数，避免出现在 shell 历史和进程列表中；CLI 也不会读取浏览器 Cookie 或把 Cookie 输出到日志。建议只在当前 shell 临时设置，不要提交到仓库。
+Cookie 不支持命令行参数，避免出现在进程列表中；CLI 也不会读取其他浏览器 Cookie 或把凭据输出到日志。会话文件等同于登录凭据，请勿复制给他人或提交到仓库。
 
 ## 输出和错误
 
@@ -135,8 +168,8 @@ make check
 发布由 GitHub Actions 和 GoReleaser 自动完成。推送语义化版本标签即可创建多平台 Release、checksums、构建证明并更新 Homebrew Tap：
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 默认测试只使用本地 fixture 和 `httptest`，不会访问小黑盒。手动在线验证：

@@ -69,3 +69,63 @@ func TestMalformedResponseIsIncompatible(t *testing.T) {
 		t.Fatalf("Kind(error) = %q, want %q", Kind(err), ErrorIncompatible)
 	}
 }
+
+func TestQRLoginFlow(t *testing.T) {
+	t.Parallel()
+	polls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		for _, key := range []string{"hkey", "_time", "nonce", "app"} {
+			if request.URL.Query().Get(key) == "" {
+				t.Errorf("%s: missing query parameter %s", request.URL.Path, key)
+			}
+		}
+		writer.Header().Set("Content-Type", "application/json")
+		switch request.URL.Path {
+		case qrCreatePath:
+			_, _ = writer.Write([]byte(`{"status":"ok","result":{"qr_url":"https://api.xiaoheihe.cn/account/qr_login/?qr=token-1","expire":120}}`))
+		case qrStatePath:
+			if request.URL.Query().Get("qr") != "token-1" {
+				t.Errorf("qr token = %q", request.URL.Query().Get("qr"))
+			}
+			polls++
+			if polls == 1 {
+				_, _ = writer.Write([]byte(`{"status":"ok","result":{"error":"ready"}}`))
+				return
+			}
+			_, _ = writer.Write([]byte(`{"status":"ok","result":{"error":"ok","pkey":"secret","expire_at":1999999999,"profile":{"heybox_id":42}}}`))
+		default:
+			http.NotFound(writer, request)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient("", time.Second, WithBaseURL(server.URL))
+	challenge, err := client.CreateQRLogin(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if challenge.Token != "token-1" || challenge.ExpiresIn != 120*time.Second {
+		t.Fatalf("challenge = %#v", challenge)
+	}
+	first, err := client.PollQRLogin(context.Background(), challenge.Token)
+	if err != nil || first.State != QRLoginScanned {
+		t.Fatalf("first poll = %#v, %v", first, err)
+	}
+	second, err := client.PollQRLogin(context.Background(), challenge.Token)
+	if err != nil || second.State != QRLoginSucceeded || second.HeyboxID != "42" || second.PKey != "secret" || second.ExpireAt != "1999999999" {
+		t.Fatalf("second poll = %#v, %v", second, err)
+	}
+}
+
+func TestQRLoginRequiresBrowserForTwoFactor(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		_, _ = writer.Write([]byte(`{"status":"need_google_check","msg":"verify","result":{}}`))
+	}))
+	defer server.Close()
+	client := NewClient("", time.Second, WithBaseURL(server.URL))
+	_, err := client.PollQRLogin(context.Background(), "token")
+	if Kind(err) != ErrorAuth {
+		t.Fatalf("error = %v", err)
+	}
+}

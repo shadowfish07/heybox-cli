@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/shadowfish07/heybox-cli/internal/api"
+	"github.com/shadowfish07/heybox-cli/internal/auth"
 	"github.com/shadowfish07/heybox-cli/internal/output"
 	"github.com/shadowfish07/heybox-cli/internal/search"
 )
@@ -41,6 +42,7 @@ func Execute(args []string, stdout, stderr io.Writer) int {
 }
 
 func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
+	credentialStore := auth.NewFileStore()
 	root := &cobra.Command{
 		Use:           "heybox",
 		Short:         "搜索小黑盒社区内容",
@@ -50,7 +52,10 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	}
 	root.SetOut(stdout)
 	root.SetErr(stderr)
-	root.AddCommand(newSearchCommand(stdout, stderr))
+	root.AddCommand(newSearchCommand(stdout, stderr, credentialStore))
+	root.AddCommand(newLoginCommand(stdout, stderr, credentialStore))
+	root.AddCommand(newLogoutCommand(stdout, stderr, credentialStore))
+	root.AddCommand(newAuthCommand(stdout, credentialStore))
 	root.AddCommand(newCompletionCommand(root, stdout))
 	return root
 }
@@ -96,7 +101,7 @@ func newCompletionCommand(root *cobra.Command, stdout io.Writer) *cobra.Command 
 	}
 }
 
-func newSearchCommand(stdout, stderr io.Writer) *cobra.Command {
+func newSearchCommand(stdout, stderr io.Writer, credentialStore auth.Store) *cobra.Command {
 	flags := searchFlags{}
 	command := &cobra.Command{
 		Use:   "search <关键词>",
@@ -106,7 +111,17 @@ func newSearchCommand(stdout, stderr io.Writer) *cobra.Command {
 			if err := validate(flags, args[0]); err != nil {
 				return err
 			}
-			client := search.NewClientAdapter(strings.TrimSpace(os.Getenv("HEYBOX_COOKIE")), flags.timeout)
+			cookie := strings.TrimSpace(os.Getenv("HEYBOX_COOKIE"))
+			if cookie == "" {
+				credential, credentialErr := credentialStore.Load()
+				switch {
+				case credentialErr == nil:
+					cookie = credential.Cookie()
+				case !errors.Is(credentialErr, auth.ErrNotLoggedIn):
+					fmt.Fprintln(stderr, "警告: 无法读取保存的登录态，将匿名搜索：", credentialErr)
+				}
+			}
+			client := search.NewClientAdapter(cookie, flags.timeout)
 			service := search.NewService(client)
 			page, err := service.Search(command.Context(), search.Options{
 				Keyword:  strings.TrimSpace(args[0]),

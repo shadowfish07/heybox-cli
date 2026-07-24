@@ -1,0 +1,90 @@
+version: 2
+
+project_name: heybox
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: heybox
+    main: ./cmd/heybox
+    binary: heybox
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X github.com/shadowfish07/heybox-cli/internal/cli.version={{ .Version }}
+
+archives:
+  - id: default
+    ids:
+      - heybox
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_
+      {{- if eq .Os "darwin" }}Darwin
+      {{- else if eq .Os "linux" }}Linux
+      {{- else if eq .Os "windows" }}Windows
+      {{- else }}{{ .Os }}{{ end }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "arm64" }}arm64
+      {{- else }}{{ .Arch }}{{ end }}
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
+
+release:
+  github:
+    owner: shadowfish07
+    name: heybox-cli
+  draft: false
+  prerelease: auto
+
+homebrew_casks:
+  - name: heybox
+    ids:
+      - default
+    binaries:
+      - heybox
+    repository:
+      owner: shadowfish07
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.GH_PAT }}"
+    homepage: https://github.com/shadowfish07/heybox-cli
+    description: Read-only CLI for searching the Heybox community
+    url:
+      verified: github.com/shadowfish07/heybox-cli/
+    generate_completions_from_executable:
+      executable: heybox
+      shell_parameter_format: cobra
+      shells:
+        - bash
+        - zsh
+        - fish

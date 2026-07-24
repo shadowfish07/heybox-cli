@@ -1,0 +1,11 @@
+{
+  "games": [
+    {
+      "steam_appid": 99928013,
+      "name": "Steam",
+      "complete_tags_str": "非游戏",
+      "follow_num": 251093,
+      "platforms": ["iOS", "Android"]
+    }
+  ]
+}

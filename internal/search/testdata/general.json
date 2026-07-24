@@ -1,0 +1,43 @@
+{
+  "items": [
+    {
+      "search_type": "link",
+      "link": {
+        "linkid": 12345,
+        "title": "Steam 夏促推荐",
+        "description": "今年值得关注的游戏",
+        "user": {"nickname": "盒友A"},
+        "topic": {"name": "Steam"},
+        "create_time": 1700000000,
+        "view_num": 1200,
+        "thumbs_up_num": 88,
+        "comment_num": 16
+      }
+    },
+    {
+      "search_type": "user",
+      "user": {
+        "heybox_id": 9876,
+        "nickname": "Steam玩家",
+        "signature": "独立游戏爱好者",
+        "fans_num": 42
+      }
+    },
+    {
+      "search_type": "topic",
+      "topic": {
+        "topic_id": 425422,
+        "name": "Steam",
+        "hot": {"raw_hot_value": 61785866}
+      }
+    },
+    {
+      "search_type": "game",
+      "game": {
+        "steam_appid": 730,
+        "name": "Counter-Strike 2",
+        "complete_tags_str": "第一人称射击"
+      }
+    }
+  ]
+}

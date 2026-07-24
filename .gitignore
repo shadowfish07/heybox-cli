@@ -1,0 +1,5 @@
+/bin/
+/dist/
+/heybox
+*.out
+.DS_Store

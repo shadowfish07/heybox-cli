@@ -70,6 +70,13 @@ func TestMalformedResponseIsIncompatible(t *testing.T) {
 	}
 }
 
+func TestGeneralTypeUsesLinkForAll(t *testing.T) {
+	t.Parallel()
+	if got := generalType("all"); got != "link" {
+		t.Fatalf("generalType(all) = %q, want link", got)
+	}
+}
+
 func TestQRLoginFlow(t *testing.T) {
 	t.Parallel()
 	polls := 0

@@ -145,7 +145,7 @@ Cookie 不支持命令行参数，避免出现在进程列表中；CLI 也不会
 - 表格会按终端宽度收缩，窄终端自动切换为分块列表。
 - 详情 URL 仅在小黑盒响应提供仍可访问的地址时输出；每条结果始终保留类型和 ID。
 - `--json` 输出包含查询元数据、`partial`、`warnings` 和统一的 `results` 数组。
-- 全站统一接口受限时，`all` 模式会尝试返回公开的话题/游戏结果，并设置 `partial: true`、在 stderr 输出警告。
+- `all` 模式分别请求帖子、用户、话题和游戏并合并结果；任一来源失败时仍返回其他来源，设置 `partial: true` 并在 stderr 输出具体警告。
 - `post` 或 `user` 搜索受限时直接失败，不会把部分结果伪装成完整结果。
 
 退出码：
@@ -168,8 +168,8 @@ make check
 发布由 GitHub Actions 和 GoReleaser 自动完成。推送语义化版本标签即可创建多平台 Release、checksums、构建证明并更新 Homebrew Tap：
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.2.2
+git push origin v0.2.2
 ```
 
 默认测试只使用本地 fixture 和 `httptest`，不会访问小黑盒。手动在线验证：

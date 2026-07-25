@@ -286,7 +286,7 @@ func (c *Client) PollQRLogin(ctx context.Context, token string) (QRLoginResult, 
 
 func generalType(resultType string) string {
 	switch resultType {
-	case "post":
+	case "post", "all":
 		return "link"
 	case "topic", "user", "game":
 		return resultType

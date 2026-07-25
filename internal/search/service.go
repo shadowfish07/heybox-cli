@@ -113,43 +113,65 @@ func (s *Service) searchPage(ctx context.Context, options Options, page int) ([]
 }
 
 func (s *Service) searchAll(ctx context.Context, query APIQuery) ([]Result, []string, bool, error) {
-	body, err := s.api.SearchGeneral(ctx, query)
-	if err == nil {
-		results := normalizeGeneral(body, "all")
-		if len(results) > 0 {
-			return results, nil, false, nil
-		}
-	}
-
 	var warnings []string
-	partial := true
-	if err != nil {
-		warnings = append(warnings, "统一搜索受限："+err.Error())
+	var firstErr error
+	failedSources := 0
+
+	postQuery := query
+	postQuery.Type = "post"
+	postBody, postErr := s.api.SearchGeneral(ctx, postQuery)
+	var posts []Result
+	if postErr != nil {
+		firstErr = postErr
+		failedSources++
+		warnings = append(warnings, "帖子搜索失败："+postErr.Error())
 	} else {
-		warnings = append(warnings, "统一搜索未返回内容，已展示话题和游戏的部分结果")
+		posts = normalizeGeneral(postBody, "post")
 	}
 
-	var topics, games []Result
+	userQuery := query
+	userQuery.Type = "user"
+	userBody, userErr := s.api.SearchGeneral(ctx, userQuery)
+	var users []Result
+	if userErr != nil {
+		if firstErr == nil {
+			firstErr = userErr
+		}
+		failedSources++
+		warnings = append(warnings, "用户搜索失败："+userErr.Error())
+	} else {
+		users = normalizeGeneral(userBody, "user")
+	}
+
+	var topics []Result
 	topicBody, topicErr := s.api.SearchTopics(ctx, query)
 	if topicErr != nil {
+		if firstErr == nil {
+			firstErr = topicErr
+		}
+		failedSources++
 		warnings = append(warnings, "话题搜索失败："+topicErr.Error())
 	} else {
 		topics = normalizeTopics(topicBody)
 	}
+
+	var games []Result
 	gameBody, gameErr := s.api.SearchGames(ctx, query)
 	if gameErr != nil {
+		if firstErr == nil {
+			firstErr = gameErr
+		}
+		failedSources++
 		warnings = append(warnings, "游戏搜索失败："+gameErr.Error())
 	} else {
 		games = normalizeGames(gameBody)
 	}
-	results := interleave(query.Limit, topics, games)
-	if len(results) == 0 {
-		if err != nil {
-			return nil, warnings, partial, err
-		}
-		return nil, warnings, partial, fmt.Errorf("小黑盒未返回可识别的搜索结果")
+
+	results := interleave(query.Limit, posts, topics, users, games)
+	if len(results) == 0 && failedSources == 4 {
+		return nil, warnings, true, firstErr
 	}
-	return results, warnings, partial, nil
+	return results, warnings, failedSources > 0, nil
 }
 
 func interleave(limit int, groups ...[]Result) []Result {

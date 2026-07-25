@@ -1,16 +1,16 @@
 {
   "items": [
     {
-      "search_type": "link",
-      "link": {
+      "type": "link",
+      "info": {
         "linkid": 12345,
-        "title": "Steam 夏促推荐",
+        "title": "Steam <em>夏促</em>推荐",
         "description": "今年值得关注的游戏",
-        "user": {"nickname": "盒友A"},
-        "topic": {"name": "Steam"},
-        "create_time": 1700000000,
+        "user": {"username": "盒友A"},
+        "topics": [{"name": "Steam"}],
+        "create_at": 1700000000,
         "view_num": 1200,
-        "thumbs_up_num": 88,
+        "up": 88,
         "comment_num": 16
       }
     },

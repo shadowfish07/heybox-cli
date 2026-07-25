@@ -34,7 +34,7 @@ func TestNormalizeGeneral(t *testing.T) {
 	if len(results) != 4 {
 		t.Fatalf("len(results) = %d, want 4: %#v", len(results), results)
 	}
-	if results[0].Type != "post" || results[0].Author != "盒友A" || results[0].Stats.Comments != 16 {
+	if results[0].Type != "post" || results[0].ID != "12345" || results[0].Title != "Steam 夏促推荐" || results[0].Author != "盒友A" || results[0].Topic != "Steam" || results[0].Stats.Likes != 88 || results[0].Stats.Comments != 16 {
 		t.Fatalf("unexpected post: %#v", results[0])
 	}
 	if results[1].Type != "user" || results[1].Title != "Steam玩家" {

@@ -3,10 +3,13 @@ package search
 import (
 	"encoding/json"
 	"html"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 )
+
+var searchHighlightTag = regexp.MustCompile(`(?i)</?em(?:\s[^>]*)?>`)
 
 func normalizeTopics(body []byte) []Result {
 	root := decodeObject(body)
@@ -98,7 +101,7 @@ func flattenItems(items []map[string]any, inheritedType string) []flatItem {
 }
 
 func unwrap(item map[string]any) map[string]any {
-	for _, key := range []string{"link", "post", "article", "topic", "user", "game", "data", "item"} {
+	for _, key := range []string{"info", "link", "post", "article", "topic", "user", "game", "data", "item"} {
 		if nested, ok := item[key].(map[string]any); ok {
 			for outerKey, outerValue := range item {
 				if outerKey == key {
@@ -121,14 +124,14 @@ func normalizeItem(item map[string]any, resultType string) Result {
 		result.ID = stringValue(item, "linkid", "link_id", "post_id", "id")
 		result.Title = cleanText(stringValue(item, "title", "link_title", "subject", "name"))
 		result.Summary = cleanText(stringValue(item, "description", "summary", "content", "text", "abstract"))
-		result.Author = nestedString(item, []string{"user", "nickname"}, []string{"author", "nickname"})
+		result.Author = nestedString(item, []string{"user", "nickname"}, []string{"user", "username"}, []string{"author", "nickname"}, []string{"author", "username"})
 		if result.Author == "" {
 			result.Author = stringValue(item, "nickname", "author_name", "username")
 		}
 		result.Topic = nestedString(item, []string{"topic", "name"}, []string{"topics", "name"})
-		result.PublishedAt = timeValue(item, "create_time", "created_at", "publish_time", "timestamp")
+		result.PublishedAt = timeValue(item, "create_at", "create_time", "created_at", "publish_time", "timestamp")
 		result.Stats.Views = intValue(item, "view_num", "views", "read_num")
-		result.Stats.Likes = intValue(item, "thumbs_up_num", "like_num", "likes")
+		result.Stats.Likes = intValue(item, "up", "thumbs_up_num", "like_num", "likes")
 		result.Stats.Comments = intValue(item, "comment_num", "comments")
 		result.URL = stringValue(item, "url", "share_url", "link_url")
 	case "user":
@@ -269,18 +272,19 @@ func nestedString(item map[string]any, paths ...[]string) string {
 	for _, path := range paths {
 		current := any(item)
 		for _, key := range path {
-			switch value := current.(type) {
-			case map[string]any:
-				current = value[key]
-			case []any:
-				if len(value) == 0 {
+			if array, ok := current.([]any); ok {
+				if len(array) == 0 {
 					current = nil
-					continue
+					break
 				}
-				current = value[0]
-			default:
-				current = nil
+				current = array[0]
 			}
+			object, ok := current.(map[string]any)
+			if !ok {
+				current = nil
+				break
+			}
+			current = object[key]
 		}
 		if value, ok := current.(string); ok && value != "" {
 			return value
@@ -304,6 +308,7 @@ func timeValue(item map[string]any, keys ...string) string {
 }
 
 func cleanText(value string) string {
+	value = searchHighlightTag.ReplaceAllString(value, "")
 	value = html.UnescapeString(value)
 	value = strings.NewReplacer("\r", " ", "\n", " ", "\t", " ").Replace(value)
 	return strings.Join(strings.Fields(value), " ")

@@ -7,15 +7,17 @@ import (
 )
 
 type fakeAPI struct {
-	general []byte
-	topics  []byte
-	games   []byte
-	err     error
-	calls   int
+	general        []byte
+	topics         []byte
+	games          []byte
+	err            error
+	calls          int
+	generalQueries []APIQuery
 }
 
-func (f *fakeAPI) SearchGeneral(_ context.Context, _ APIQuery) ([]byte, error) {
+func (f *fakeAPI) SearchGeneral(_ context.Context, query APIQuery) ([]byte, error) {
 	f.calls++
+	f.generalQueries = append(f.generalQueries, query)
 	return f.general, f.err
 }
 
@@ -46,15 +48,45 @@ func TestAllFallsBackWithPartialWarning(t *testing.T) {
 
 func TestAllPaginatesAndDeduplicates(t *testing.T) {
 	t.Parallel()
-	upstream := &fakeAPI{general: fixture(t, "general.json")}
+	upstream := &fakeAPI{
+		general: fixture(t, "general.json"),
+		topics:  fixture(t, "topics.json"),
+		games:   fixture(t, "games.json"),
+	}
 	service := NewService(upstream)
 	service.pageWait = 0
 	page, err := service.Search(context.Background(), Options{Keyword: "steam", Type: "all", Page: 1, Limit: 4, All: true, MaxPages: 5})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(page.Results) != 4 || upstream.calls != 2 {
-		t.Fatalf("results=%d calls=%d, want 4 results and 2 calls", len(page.Results), upstream.calls)
+	if len(page.Results) != 4 || upstream.calls != 4 {
+		t.Fatalf("results=%d calls=%d, want 4 results and 4 general calls", len(page.Results), upstream.calls)
+	}
+	if upstream.generalQueries[0].Type != "post" || upstream.generalQueries[1].Type != "user" {
+		t.Fatalf("general query types = %q, %q", upstream.generalQueries[0].Type, upstream.generalQueries[1].Type)
+	}
+}
+
+func TestAllAggregatesEachSearchType(t *testing.T) {
+	t.Parallel()
+	upstream := &fakeAPI{
+		general: fixture(t, "general.json"),
+		topics:  fixture(t, "topics.json"),
+		games:   fixture(t, "games.json"),
+	}
+	service := NewService(upstream)
+	page, err := service.Search(context.Background(), Options{Keyword: "steam", Type: "all", Page: 1, Limit: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Partial || len(page.Warnings) != 0 || len(page.Results) != 4 {
+		t.Fatalf("unexpected page: %#v", page)
+	}
+	wantTypes := []string{"post", "topic", "user", "game"}
+	for index, wantType := range wantTypes {
+		if page.Results[index].Type != wantType {
+			t.Fatalf("result %d type = %q, want %q", index, page.Results[index].Type, wantType)
+		}
 	}
 }
 

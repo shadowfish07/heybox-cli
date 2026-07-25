@@ -103,6 +103,12 @@ func qrLogin(ctx context.Context, stdout io.Writer) (auth.Credential, error) {
 		case <-ticker.C:
 			result, err := client.PollQRLogin(pollContext, challenge.Token)
 			if err != nil {
+				if ctx.Err() != nil {
+					return auth.Credential{}, fmt.Errorf("等待二维码登录: %w", ctx.Err())
+				}
+				if pollContext.Err() != nil {
+					return auth.Credential{}, fmt.Errorf("二维码已过期，请重新运行 heybox login")
+				}
 				return auth.Credential{}, fmt.Errorf("查询二维码登录状态: %w", err)
 			}
 			switch result.State {

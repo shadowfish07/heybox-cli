@@ -92,7 +92,8 @@ func TestQRLoginFlow(t *testing.T) {
 				_, _ = writer.Write([]byte(`{"status":"ok","result":{"error":"ready"}}`))
 				return
 			}
-			_, _ = writer.Write([]byte(`{"status":"ok","result":{"error":"ok","pkey":"secret","expire_at":1999999999,"profile":{"heybox_id":42}}}`))
+			http.SetCookie(writer, &http.Cookie{Name: "pkey", Value: "cookie-secret", Path: "/"})
+			_, _ = writer.Write([]byte(`{"status":"ok","result":{"error":"ok","expire_at":1999999999,"profile":{"heybox_id":42}}}`))
 		default:
 			http.NotFound(writer, request)
 		}
@@ -112,7 +113,7 @@ func TestQRLoginFlow(t *testing.T) {
 		t.Fatalf("first poll = %#v, %v", first, err)
 	}
 	second, err := client.PollQRLogin(context.Background(), challenge.Token)
-	if err != nil || second.State != QRLoginSucceeded || second.HeyboxID != "42" || second.PKey != "secret" || second.ExpireAt != "1999999999" {
+	if err != nil || second.State != QRLoginSucceeded || second.HeyboxID != "42" || second.PKey != "cookie-secret" || second.ExpireAt != "1999999999" {
 		t.Fatalf("second poll = %#v, %v", second, err)
 	}
 }

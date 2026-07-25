@@ -8,6 +8,7 @@ import (
 	"io"
 	"math/rand/v2"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"runtime"
 	"strconv"
@@ -135,10 +136,12 @@ func WithClock(clock func() time.Time) ClientOption {
 }
 
 func NewClient(cookie string, timeout time.Duration, options ...ClientOption) *Client {
+	jar, _ := cookiejar.New(nil)
 	client := &Client{
 		baseURL: defaultBaseURL,
 		httpClient: &http.Client{
 			Timeout: timeout,
+			Jar:     jar,
 		},
 		cookie: cookie,
 		now:    time.Now,
@@ -252,16 +255,22 @@ func (c *Client) PollQRLogin(ctx context.Context, token string) (QRLoginResult, 
 	case "ready":
 		return QRLoginResult{State: QRLoginScanned}, nil
 	case "ok":
-		heyboxID := firstNonEmpty(string(result.Profile.HeyboxID), string(result.AccountDetail.UserID), string(result.HeyboxID))
-		if strings.TrimSpace(heyboxID) == "" || strings.TrimSpace(string(result.PKey)) == "" {
+		heyboxID := firstNonEmpty(
+			string(result.Profile.HeyboxID),
+			string(result.AccountDetail.UserID),
+			string(result.HeyboxID),
+			c.cookieValue("heybox_id", "user_heybox_id", "x_xhh_heyboxid"),
+		)
+		pkey := firstNonEmpty(string(result.PKey), c.cookieValue("pkey", "user_pkey"))
+		if strings.TrimSpace(heyboxID) == "" || strings.TrimSpace(pkey) == "" {
 			return QRLoginResult{}, &Error{Kind: ErrorIncompatible, Message: "小黑盒二维码登录成功响应缺少 heybox_id 或 pkey"}
 		}
 		return QRLoginResult{
 			State:        QRLoginSucceeded,
 			HeyboxID:     heyboxID,
-			PKey:         string(result.PKey),
+			PKey:         pkey,
 			ExpireAt:     string(result.ExpireAt),
-			XXHHHeyboxID: string(result.XXHHHeyboxID),
+			XXHHHeyboxID: firstNonEmpty(string(result.XXHHHeyboxID), c.cookieValue("x_xhh_heyboxid")),
 		}, nil
 	default:
 		message := strings.TrimSpace(result.ErrorMessage)
@@ -439,6 +448,25 @@ func firstNonEmpty(values ...string) string {
 	for _, value := range values {
 		if strings.TrimSpace(value) != "" {
 			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func (c *Client) cookieValue(names ...string) string {
+	if c.httpClient == nil || c.httpClient.Jar == nil {
+		return ""
+	}
+	requestURL, err := url.Parse(c.baseURL + qrStatePath)
+	if err != nil {
+		return ""
+	}
+	cookies := c.httpClient.Jar.Cookies(requestURL)
+	for _, name := range names {
+		for _, cookie := range cookies {
+			if cookie.Name == name && strings.TrimSpace(cookie.Value) != "" {
+				return strings.TrimSpace(cookie.Value)
+			}
 		}
 	}
 	return ""

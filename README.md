@@ -4,7 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/shadowfish07/heybox-cli)](https://github.com/shadowfish07/heybox-cli/releases/latest)
 [![License](https://img.shields.io/github/license/shadowfish07/heybox-cli)](LICENSE)
 
-一个只读的小黑盒社区搜索命令行工具。支持搜索帖子、话题、用户和游戏，默认输出适合终端阅读的摘要表格，也可以输出稳定 JSON 供脚本使用。
+一个只读的小黑盒社区命令行工具。支持搜索帖子、话题、用户和游戏，也能读取帖子正文、评论和楼中楼回复；默认输出适合终端阅读的文本，也可以输出稳定 JSON 供脚本使用。
 
 > 小黑盒没有公开、稳定的社区搜索 API。本项目使用当前网页端/客户端的只读接口，接口变化、限流或验证码都可能影响搜索。CLI 不会尝试绕过验证码。
 
@@ -78,6 +78,22 @@ heybox search "Steam" --type game
 # JSON 输出
 heybox search "Steam" --json
 
+# 查看帖子正文
+heybox post 184714599
+heybox post 184714599 --json
+
+# 查看评论；默认同时获取每个根楼层的楼中楼回复
+heybox comments 184714599
+heybox comments 184714599 --json
+
+# 评论排序、分页和有界全量获取
+heybox comments 184714599 --sort latest --page 2 --limit 20
+heybox comments 184714599 --all --max-pages 20
+
+# 只读根评论，或调整单个楼层的楼中楼获取上限
+heybox comments 184714599 --replies=false
+heybox comments 184714599 --max-reply-pages 50
+
 # 分页与有界批量获取
 heybox search "Steam" --page 2 --limit 10
 heybox search "Steam" --all --max-pages 5 --limit 20
@@ -100,6 +116,8 @@ heybox search "Steam" --sort latest --timeout 20s
 ```
 
 `--all` 仍受 `--max-pages` 保护，默认最多获取 5 页，最大允许 20 页；各页按顺序请求，页间有短暂延时以降低触发限流的概率。
+
+`comments` 的排序值为 `hot|oldest|latest`。其 `--all` 和 `--max-pages` 控制根评论分页；默认启用的 `--replies` 会继续请求楼中楼，并保留每条回复的 `root_id`、`reply_to_id` 和 `reply_to_author`。每个根楼层默认最多请求 20 页楼中楼，可通过 `--max-reply-pages` 调整到最多 100 页；达到边界时 JSON 会设置 `partial: true` 并返回警告，不会把截断结果冒充完整结果。
 
 ## 登录与凭据安全
 
@@ -145,6 +163,8 @@ Cookie 不支持命令行参数，避免出现在进程列表中；CLI 也不会
 - 表格会按终端宽度收缩，窄终端自动切换为分块列表。
 - 详情 URL 仅在小黑盒响应提供仍可访问的地址时输出；每条结果始终保留类型和 ID。
 - `--json` 输出包含查询元数据、`partial`、`warnings` 和统一的 `results` 数组。
+- `post --json` 返回帖子正文、作者、话题、时间、URL 和互动统计。
+- `comments --json` 将楼中楼放在根评论的 `replies` 数组中；回复其他评论时同时保留回复目标 ID 和作者。
 - `all` 模式分别请求帖子、用户、话题和游戏并合并结果；任一来源失败时仍返回其他来源，设置 `partial: true` 并在 stderr 输出具体警告。
 - `post` 或 `user` 搜索受限时直接失败，不会把部分结果伪装成完整结果。
 
@@ -168,8 +188,8 @@ make check
 发布由 GitHub Actions 和 GoReleaser 自动完成。推送语义化版本标签即可创建多平台 Release、checksums、构建证明并更新 Homebrew Tap：
 
 ```bash
-git tag v0.2.2
-git push origin v0.2.2
+git tag v0.3.0
+git push origin v0.3.0
 ```
 
 默认测试只使用本地 fixture 和 `httptest`，不会访问小黑盒。手动在线验证：
@@ -178,11 +198,14 @@ git push origin v0.2.2
 go run ./cmd/heybox search "Steam" --type topic --limit 3
 go run ./cmd/heybox search "Steam" --type game --limit 3
 go run ./cmd/heybox search "Steam" --json --limit 3
+go run ./cmd/heybox post 184714599 --json
+go run ./cmd/heybox comments 184714599 --limit 5 --json
 ```
 
 主要代码分层：
 
 - `internal/api`：HTTP、签名、认证、重试和上游错误分类。
 - `internal/search`：分页、降级策略和统一结果模型。
+- `internal/thread`：帖子详情、根评论分页和楼中楼游标分页。
 - `internal/output`：终端表格及 JSON。
 - `internal/cli`：命令、参数校验和退出码。

@@ -38,6 +38,19 @@ func TestHelp(t *testing.T) {
 	}
 }
 
+func TestCommentsHelpAndValidation(t *testing.T) {
+	t.Parallel()
+	var stdout, stderr bytes.Buffer
+	if code := Execute([]string{"comments", "--help"}, &stdout, &stderr); code != 0 || !strings.Contains(stdout.String(), "--max-reply-pages") {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := Execute([]string{"comments", "not-an-id"}, &stdout, &stderr); code != 2 || !strings.Contains(stderr.String(), "正整数") {
+		t.Fatalf("code=%d stderr=%q", code, stderr.String())
+	}
+}
+
 func TestValidationReturnsUsageExitCode(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer

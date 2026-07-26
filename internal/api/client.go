@@ -23,6 +23,8 @@ const (
 	gamePath       = "/game/search/"
 	qrCreatePath   = "/account/get_qrcode_url/"
 	qrStatePath    = "/account/qr_state/"
+	postTreePath   = "/bbs/app/link/tree"
+	repliesPath    = "/bbs/app/comment/sub/comments"
 )
 
 type ErrorKind string
@@ -61,6 +63,20 @@ type Query struct {
 	Sort    string
 	Offset  int
 	Limit   int
+}
+
+type ThreadQuery struct {
+	LinkID string
+	Offset int
+	Limit  int
+	Sort   string
+}
+
+type RepliesQuery struct {
+	LinkID        string
+	RootCommentID string
+	Cursor        string
+	Limit         int
 }
 
 type Response struct {
@@ -190,6 +206,26 @@ func (c *Client) SearchGames(ctx context.Context, query Query) (json.RawMessage,
 	params.Set("offset", strconv.Itoa(query.Offset))
 	params.Set("limit", strconv.Itoa(query.Limit))
 	return c.get(ctx, gamePath, params, false)
+}
+
+func (c *Client) GetPostThread(ctx context.Context, query ThreadQuery) (json.RawMessage, error) {
+	params := url.Values{}
+	params.Set("link_id", query.LinkID)
+	params.Set("offset", strconv.Itoa(query.Offset))
+	params.Set("limit", strconv.Itoa(query.Limit))
+	params.Set("sort_filter", query.Sort)
+	return c.get(ctx, postTreePath, params, true)
+}
+
+func (c *Client) GetCommentReplies(ctx context.Context, query RepliesQuery) (json.RawMessage, error) {
+	params := url.Values{}
+	params.Set("link_id", query.LinkID)
+	params.Set("root_comment_id", query.RootCommentID)
+	params.Set("limit", strconv.Itoa(query.Limit))
+	if query.Cursor != "" && query.Cursor != "0" {
+		params.Set("lastval", query.Cursor)
+	}
+	return c.get(ctx, repliesPath, params, true)
 }
 
 func (c *Client) CreateQRLogin(ctx context.Context) (QRLoginChallenge, error) {

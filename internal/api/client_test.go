@@ -40,6 +40,46 @@ func TestSearchGeneralBuildsSignedRequest(t *testing.T) {
 	}
 }
 
+func TestThreadEndpointsBuildSignedRequests(t *testing.T) {
+	t.Parallel()
+	var paths []string
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		paths = append(paths, request.URL.Path)
+		query := request.URL.Query()
+		for _, key := range []string{"link_id", "limit", "hkey", "_time", "nonce"} {
+			if query.Get(key) == "" {
+				t.Errorf("%s: missing query parameter %s", request.URL.Path, key)
+			}
+		}
+		switch request.URL.Path {
+		case postTreePath:
+			if query.Get("offset") != "20" || query.Get("sort_filter") != "time_desc" {
+				t.Errorf("tree query = %v", query)
+			}
+		case repliesPath:
+			if query.Get("root_comment_id") != "456" || query.Get("lastval") != "cursor-1" {
+				t.Errorf("replies query = %v", query)
+			}
+		default:
+			t.Errorf("unexpected path %s", request.URL.Path)
+		}
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{"status":"ok","result":{}}`))
+	}))
+	defer server.Close()
+
+	client := NewClient("heybox_id=42", time.Second, WithBaseURL(server.URL))
+	if _, err := client.GetPostThread(context.Background(), ThreadQuery{LinkID: "123", Offset: 20, Limit: 10, Sort: "time_desc"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.GetCommentReplies(context.Background(), RepliesQuery{LinkID: "123", RootCommentID: "456", Cursor: "cursor-1", Limit: 50}); err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) != 2 {
+		t.Fatalf("paths = %v", paths)
+	}
+}
+
 func TestCaptchaIsTyped(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
